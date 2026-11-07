@@ -1,229 +1,562 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jogo Ping-Pong</title>
-    <style>
-      * {
-        overflow: hidden;
-        margin: 0;
-        padding: 0;
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Um jogo de pingue-pongue contra a CPU. Quem fizer 7 pontos primeiro vence.">
+  <title>Ping Pong Arcade</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #0c1514;
+      --panel: #14211e;
+      --court: #101d1a;
+      --border: #32453e;
+      --ink: #edf3e5;
+      --muted: #a1b4a9;
+      --mint: #d3fa78;
+      --orange: #ffaf78;
+      --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: radial-gradient(ellipse at 14% 5%, #1d3027 0%, transparent 42%), var(--background);
+      font-family: system-ui, sans-serif;
+    }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; opacity: .48; }
+    button:focus-visible, select:focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; }
+    .shell { width: min(1160px, calc(100% - 48px)); margin: auto; }
+    .top {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand, .tag, .eyebrow, .player, .match, .card h2, .court-id, footer {
+      font: 700 .75rem/1.35 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .mark {
+      display: grid;
+      width: 33px;
+      height: 33px;
+      place-items: center;
+      background: var(--mint);
+      color: #17220e;
+      border-radius: 9px;
+    }
+    .mark svg { width: 21px; height: 21px; }
+    .tag { color: var(--muted); font-size: .68rem; }
+    .hero { padding: 42px 0 30px; }
+    .eyebrow { margin: 0 0 9px; color: var(--mint); }
+    h1 {
+      margin: 0;
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      line-height: .96;
+      letter-spacing: -.085em;
+      font-weight: 850;
+    }
+    h1 span { color: var(--mint); }
+    .hero > p:last-child { margin: 15px 0 0; color: var(--muted); font-size: .98rem; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 256px; gap: 18px; }
+    .game, .card { border: 1px solid var(--border); background: var(--panel); border-radius: 16px; }
+    .game { overflow: hidden; }
+    .scoreboard {
+      min-height: 76px;
+      padding: 13px 20px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+    }
+    .team { display: flex; align-items: center; gap: 13px; }
+    .team:last-child { justify-content: flex-end; }
+    .player { color: var(--muted); }
+    .score { font: 750 2.45rem/1 var(--mono); color: var(--mint); }
+    .team:last-child .score { color: var(--orange); }
+    .match {
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 9px;
+      border-radius: 6px;
+      font-size: .63rem;
+      text-align: center;
+    }
+    .arena { position: relative; border-block: 1px solid var(--border); }
+    canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 2 / 1;
+      background: var(--court);
+    }
+    canvas.playing { touch-action: none; cursor: ns-resize; }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 10px;
+      padding: 10px;
+      text-align: center;
+      background: #09141072;
+    }
+    .overlay[hidden] { display: none; }
+    .overlay .eyebrow { margin: 0; font-size: .65rem; }
+    .overlay h2 { margin: 0; font-size: clamp(1.4rem, 4vw, 2.75rem); line-height: 1.06; letter-spacing: -.06em; }
+    .primary {
+      border: 1px solid var(--mint);
+      border-radius: 8px;
+      background: var(--mint);
+      color: #18260d;
+      font-weight: 800;
+      padding: 9px 15px;
+    }
+    .primary:hover { background: #e6ffa8; }
+    .game-bottom { min-height: 57px; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 14px; }
+    .court-id { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .65rem; }
+    .court-id::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
+    .actions { display: flex; gap: 7px; }
+    .secondary, select {
+      color: var(--ink);
+      background: #101b18;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-size: .82rem;
+    }
+    .secondary:not(:disabled):hover, select:hover { border-color: #80958a; }
+    .sidebar { display: grid; align-content: start; gap: 12px; }
+    .card { padding: 16px; }
+    .card h2 { margin: 0 0 13px; color: var(--mint); }
+    .control { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .86rem; }
+    .control + .control { margin-top: 10px; }
+    .keys { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: .72rem; }
+    kbd {
+      min-width: 23px;
+      padding: 3px 4px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #0f1917;
+      color: var(--ink);
+      font: 700 .75rem var(--mono);
+      text-align: center;
+    }
+    .card p { margin: 0; font-size: .84rem; line-height: 1.55; color: var(--muted); }
+    .card p strong { color: var(--ink); }
+    .settings { display: grid; gap: 8px; }
+    .settings h2 { margin-bottom: 2px; }
+    .settings label { font-size: .83rem; }
+    footer { padding: 19px 0 25px; color: var(--muted); font-size: .64rem; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 590px) {
+      .shell { width: calc(100% - 24px); }
+      .top { min-height: 56px; }
+      .tag { font-size: .58rem; }
+      .hero { padding: 27px 0 21px; }
+      .hero > p:last-child { margin-top: 11px; font-size: .9rem; }
+      .scoreboard { min-height: 57px; padding: 8px 10px; gap: 5px; }
+      .team { gap: 6px; }
+      .score { font-size: 1.7rem; }
+      .player, .match { font-size: .58rem; }
+      .match { padding: 4px 5px; }
+      .sidebar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 9v8M20 7v8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+          </svg>
+        </span>
+        Clube Arcade
+      </div>
+      <span class="tag">Solo / Jogador × CPU</span>
+    </header>
+
+    <main>
+      <div class="hero">
+        <p class="eyebrow">01 / Esporte de mesa</p>
+        <h1>Ping <span>Pong</span></h1>
+        <p>Controle a raquete verde e marque 7 pontos antes da CPU.</p>
+      </div>
+
+      <div class="layout">
+        <section class="game" aria-label="Partida de pingue-pongue">
+          <div class="scoreboard" aria-label="Placar">
+            <div class="team"><span class="player">Você</span><span class="score" id="human-score">00</span></div>
+            <span class="match">Até 7 pontos</span>
+            <div class="team"><span class="score" id="cpu-score">00</span><span class="player">CPU</span></div>
+          </div>
+          <div class="arena">
+            <canvas id="court" width="960" height="480" aria-label="Quadra de pingue-pongue"></canvas>
+            <div class="overlay" id="overlay">
+              <p class="eyebrow" id="overlay-label">Nova partida</p>
+              <h2 id="overlay-title">Pronto para jogar?</h2>
+              <button class="primary" id="start" type="button">Iniciar partida</button>
+            </div>
+          </div>
+          <div class="game-bottom">
+            <span class="court-id" id="game-status">Aguardando</span>
+            <div class="actions">
+              <button class="secondary" id="pause" type="button" disabled>Pausar</button>
+              <button class="secondary" id="restart" type="button" disabled>Reiniciar</button>
+            </div>
+          </div>
+          <span class="sr-only" id="announcement" role="status"></span>
+        </section>
+
+        <aside class="sidebar" aria-label="Controles e configurações">
+          <section class="card">
+            <h2>Controles</h2>
+            <div class="control">
+              <span>Mover</span>
+              <span class="keys"><kbd>W</kbd><kbd>S</kbd> ou <kbd>↑</kbd><kbd>↓</kbd></span>
+            </div>
+            <div class="control"><span>Pausar / retomar</span><kbd>Espaço</kbd></div>
+            <p style="margin-top: 12px">Você também pode mover o mouse ou arrastar o dedo na quadra.</p>
+          </section>
+          <section class="card settings">
+            <h2>Configuração</h2>
+            <label for="difficulty">Dificuldade da CPU</label>
+            <select id="difficulty">
+              <option value="easy">Fácil</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Difícil</option>
+            </select>
+          </section>
+          <section class="card">
+            <h2>Dica de jogo</h2>
+            <p>Rebata perto da <strong>ponta da raquete</strong> para mandar a bola em um ângulo mais fechado.</p>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <footer>Ping Pong / Clube Arcade</footer>
+  </div>
+
+  <script>
+    const canvas = document.querySelector('#court');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.querySelector('#overlay');
+    const overlayLabel = document.querySelector('#overlay-label');
+    const overlayTitle = document.querySelector('#overlay-title');
+    const startButton = document.querySelector('#start');
+    const pauseButton = document.querySelector('#pause');
+    const restartButton = document.querySelector('#restart');
+    const difficultySelect = document.querySelector('#difficulty');
+    const gameStatus = document.querySelector('#game-status');
+    const announcement = document.querySelector('#announcement');
+    const scoreElements = [document.querySelector('#human-score'), document.querySelector('#cpu-score')];
+
+    const width = 960;
+    const height = 480;
+    const paddleWidth = 15;
+    const paddleHeight = 108;
+    const playerX = 39;
+    const cpuX = width - playerX - paddleWidth;
+    const radius = 10;
+    const winScore = 7;
+    const initialSpeed = 450;
+    const maxSpeed = 950;
+    const step = 1 / 240;
+    const difficulties = {
+      easy: { speed: 230, reaction: .19, error: 50 },
+      normal: { speed: 340, reaction: .12, error: 32 },
+      hard: { speed: 440, reaction: .07, error: 17 },
+    };
+    const keys = new Set();
+    const upKeys = ['ArrowUp', 'KeyW'];
+    const downKeys = ['ArrowDown', 'KeyS'];
+    const movementKeys = [...upKeys, ...downKeys];
+    const scores = [0, 0];
+    const ball = { x: width / 2, y: height / 2, vx: 0, vy: 0 };
+    let state = 'ready';
+    let playerY = height / 2;
+    let cpuY = height / 2;
+    let pointerY = null;
+    let activePointer = null;
+    let cpuTarget = height / 2;
+    let reactionTime = 0;
+    let cpuOffset = 0;
+    let serveTime = 0;
+    let serveDirection = 1;
+    let lastFrame;
+    let accumulator = 0;
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const clampPaddle = (y) => clamp(y, paddleHeight / 2 + 12, height - paddleHeight / 2 - 12);
+
+    function updateInterface() {
+      const playing = state === 'playing';
+      overlay.hidden = playing;
+      canvas.classList.toggle('playing', playing);
+      pauseButton.disabled = state === 'ready' || state === 'finished';
+      restartButton.disabled = state === 'ready';
+      pauseButton.textContent = state === 'paused' ? 'Retomar' : 'Pausar';
+      gameStatus.textContent = {
+        ready: 'Aguardando', playing: 'Em jogo', paused: 'Pausado', finished: 'Encerrado',
+      }[state];
+      if (state === 'paused') {
+        overlayLabel.textContent = 'Partida pausada';
+        overlayTitle.textContent = 'Intervalo';
+        startButton.textContent = 'Retomar partida';
       }
-    </style>
-  </head>
-  <body>
-    <canvas></canvas>
-    <script>
-      const canvasEl = document.querySelector("canvas"),
-        canvasCtx = canvasEl.getContext("2d"),
-        gapX = 10
+      if (state === 'finished') {
+        overlayLabel.textContent = 'Fim de partida';
+        overlayTitle.textContent = scores[0] === winScore ? 'Você venceu!' : 'A CPU venceu';
+        startButton.textContent = 'Jogar novamente';
+      }
+    }
 
-      const mouse = { x: 0, y: 0 }
+    function updateScore() {
+      scoreElements.forEach((element, index) => {
+        element.textContent = String(scores[index]).padStart(2, '0');
+      });
+    }
 
-      const field = {
-        w: window.innerWidth,
-        h: window.innerHeight,
-        draw: function () {
-          canvasCtx.fillStyle = "#286047"
-          canvasCtx.fillRect(0, 0, this.w, this.h)
-        },
+    function prepareServe(direction, delay) {
+      ball.x = width / 2;
+      ball.y = height / 2;
+      ball.vx = 0;
+      ball.vy = 0;
+      serveDirection = direction;
+      serveTime = delay;
+      reactionTime = 0;
+    }
+
+    function startMatch() {
+      scores.fill(0);
+      updateScore();
+      keys.clear();
+      pointerY = null;
+      playerY = height / 2;
+      cpuY = height / 2;
+      cpuTarget = height / 2;
+      cpuOffset = 0;
+      prepareServe(Math.random() < .5 ? -1 : 1, 1);
+      state = 'playing';
+      announcement.textContent = 'Partida iniciada.';
+      updateInterface();
+    }
+
+    function togglePause() {
+      if (state !== 'playing' && state !== 'paused') return;
+      state = state === 'playing' ? 'paused' : 'playing';
+      keys.clear();
+      pointerY = null;
+      updateInterface();
+    }
+
+    function awardPoint(index) {
+      scores[index]++;
+      updateScore();
+      const scoreText = 'Você ' + scores[0] + ', CPU ' + scores[1] + '.';
+      if (scores[index] === winScore) {
+        state = 'finished';
+        updateInterface();
+        announcement.textContent = overlayTitle.textContent + ' ' + scoreText;
+      } else {
+        announcement.textContent = (index === 0 ? 'Ponto para você. ' : 'Ponto para a CPU. ') + scoreText;
+        prepareServe(index === 0 ? 1 : -1, .75);
+      }
+    }
+
+    function bounceOffPaddle(paddleY, contactY, direction) {
+      const offset = clamp((contactY - paddleY) / (paddleHeight / 2), -1, 1);
+      const angle = offset * 1.02;
+      const speed = Math.min(Math.hypot(ball.vx, ball.vy) * 1.075, maxSpeed);
+      ball.vx = Math.cos(angle) * speed * direction;
+      ball.vy = Math.sin(angle) * speed;
+      cpuOffset = (Math.random() * 2 - 1) * difficulties[difficultySelect.value].error;
+    }
+
+    function moveBall(dt) {
+      const oldX = ball.x;
+      const oldY = ball.y;
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+
+      if (ball.y < radius || ball.y > height - radius) {
+        ball.y = clamp(ball.y, radius, height - radius);
+        ball.vy = -ball.vy;
       }
 
-      const line = {
-        w: 15,
-        h: field.h,
-        draw: function () {
-          canvasCtx.fillStyle = "#ffffff"
-          canvasCtx.fillRect(field.w / 2 - this.w / 2, 0, this.w, this.h)
-        },
+      const movingLeft = ball.vx < 0;
+      const face = movingLeft ? playerX + paddleWidth + radius : cpuX - radius;
+      const crossed = movingLeft ? oldX >= face && ball.x <= face : oldX <= face && ball.x >= face;
+      if (crossed) {
+        const contactY = oldY + (ball.y - oldY) * (face - oldX) / (ball.x - oldX);
+        const paddleY = movingLeft ? playerY : cpuY;
+        if (Math.abs(contactY - paddleY) <= paddleHeight / 2 + radius) {
+          ball.x = face;
+          ball.y = contactY;
+          bounceOffPaddle(paddleY, contactY, movingLeft ? 1 : -1);
+        }
       }
 
-      const leftPaddle = {
-        x: gapX,
-        y: 0,
-        w: line.w,
-        h: 200,
-        _move: function () {
-          this.y = mouse.y - this.h / 2
-        },
-        draw: function () {
-          canvasCtx.fillStyle = "#ffffff"
-          canvasCtx.fillRect(this.x, this.y, this.w, this.h)
+      if (ball.x < -radius) awardPoint(1);
+      if (ball.x > width + radius) awardPoint(0);
+    }
 
-          this._move()
-        },
+    function update(dt) {
+      const direction = Number(downKeys.some((key) => keys.has(key))) - Number(upKeys.some((key) => keys.has(key)));
+      if (direction) playerY = clampPaddle(playerY + direction * 620 * dt);
+      else if (pointerY !== null) playerY = clampPaddle(pointerY);
+
+      const difficulty = difficulties[difficultySelect.value];
+      reactionTime -= dt;
+      if (reactionTime <= 0) {
+        cpuTarget = ball.vx > 0 ? ball.y + cpuOffset : height / 2;
+        reactionTime = difficulty.reaction;
       }
+      cpuY = clampPaddle(cpuY + clamp(cpuTarget - cpuY, -difficulty.speed * dt, difficulty.speed * dt));
 
-      const rightPaddle = {
-        x: field.w - line.w - gapX,
-        y: 0,
-        w: line.w,
-        h: 200,
-        speed: 5,
-        _move: function () {
-          if (this.y + this.h / 2 < ball.y + ball.r) {
-            this.y += this.speed
-          } else {
-            this.y -= this.speed
-          }
-        },
-        speedUp: function () {
-          this.speed += 2
-        },
-        draw: function () {
-          canvasCtx.fillStyle = "#ffffff"
-          canvasCtx.fillRect(this.x, this.y, this.w, this.h)
-          this._move()
-        },
+      if (serveTime > 0) {
+        serveTime -= dt;
+        if (serveTime <= 0) {
+          const angle = (.23 + Math.random() * .33) * (Math.random() < .5 ? -1 : 1);
+          ball.vx = Math.cos(angle) * initialSpeed * serveDirection;
+          ball.vy = Math.sin(angle) * initialSpeed;
+        }
+        return;
       }
+      moveBall(dt);
+    }
 
-      const score = {
-        human: 0,
-        computer: 0,
-        increaseHuman: function () {
-          this.human++
-        },
-        increaseComputer: function () {
-          this.computer++
-        },
-        draw: function () {
-          canvasCtx.font = "bold 72px Arial"
-          canvasCtx.textAlign = "center"
-          canvasCtx.textBaseline = "top"
-          canvasCtx.fillStyle = "#01341D"
-          canvasCtx.fillText(this.human, field.w / 4, 50)
-          canvasCtx.fillText(this.computer, field.w / 4 + field.w / 2, 50)
-        },
+    function drawCourt() {
+      ctx.fillStyle = '#101d1a';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = '#273c33';
+      for (let x = 24; x < width; x += 24) {
+        for (let y = 24; y < height; y += 24) ctx.fillRect(x, y, 1.5, 1.5);
       }
+      ctx.strokeStyle = '#395347';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(17, 17, width - 34, height - 34);
+      ctx.beginPath();
+      ctx.arc(width / 2, height / 2, 70, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.save();
+      ctx.setLineDash([8, 10]);
+      ctx.beginPath();
+      ctx.moveTo(width / 2, 17);
+      ctx.lineTo(width / 2, height - 17);
+      ctx.stroke();
+      ctx.restore();
 
-      const ball = {
-        x: field.w / 2,
-        y: field.h / 2,
-        r: 20,
-        speed: 5,
-        directionX: 1,
-        directionY: 1,
-        _calcPosition: function () {
-          // verifica se o jogador 1 fez um ponto (x > largura do campo)
-          if (this.x > field.w - this.r - rightPaddle.w - gapX) {
-            // verifica se a raquete direita está na posição y da bola
-            if (
-              this.y + this.r > rightPaddle.y &&
-              this.y - this.r < rightPaddle.y + rightPaddle.h
-            ) {
-              // rebate a bola intervertendo o sinal de X
-              this._reverseX()
-            } else {
-              // pontuar o jogador 1
-              score.increaseHuman()
-              this._pointUp()
-            }
-          }
+      ctx.fillStyle = '#d3fa78';
+      ctx.fillRect(playerX, playerY - paddleHeight / 2, paddleWidth, paddleHeight);
+      ctx.fillStyle = '#ffaf78';
+      ctx.fillRect(cpuX, cpuY - paddleHeight / 2, paddleWidth, paddleHeight);
 
-          // verifica se o jogador 2 fez um ponto (x < 0)
-          if (this.x < this.r + leftPaddle.w + gapX) {
-            // verifica se a raquete esquerda está na posição y da bola
-            if (
-              this.y + this.r > leftPaddle.y &&
-              this.y - this.r < leftPaddle.y + leftPaddle.h
-            ) {
-              // rebate a bola intervertendo o sinal de X
-              this._reverseX()
-            } else {
-              // pontuar o jogador 2
-              score.increaseComputer()
-              this._pointUp()
-            }
-          }
+      ctx.save();
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#e7ffd1a0';
+      ctx.fillStyle = '#f2fae9';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
-          // verifica as laterais superior e inferior do campo
-          if (
-            (this.y - this.r < 0 && this.directionY < 0) ||
-            (this.y > field.h - this.r && this.directionY > 0)
-          ) {
-            // rebate a bola invertendo o sinal do eixo Y
-            this._reverseY()
-          }
-        },
-        _reverseX: function () {
-          // 1 * -1 = -1
-          // -1 * -1 = 1
-          this.directionX *= -1
-        },
-        _reverseY: function () {
-          // 1 * -1 = -1
-          // -1 * -1 = 1
-          this.directionY *= -1
-        },
-        _speedUp: function () {
-          this.speed += 2
-        },
-        _pointUp: function () {
-          this._speedUp()
-          rightPaddle.speedUp()
+    function resizeCanvas() {
+      const bounds = canvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(bounds.width * scale));
+      canvas.height = Math.max(1, Math.round(bounds.height * scale));
+      ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+      drawCourt();
+    }
 
-          this.x = field.w / 2
-          this.y = field.h / 2
-        },
-        _move: function () {
-          this.x += this.directionX * this.speed
-          this.y += this.directionY * this.speed
-        },
-        draw: function () {
-          canvasCtx.fillStyle = "#ffffff"
-          canvasCtx.beginPath()
-          canvasCtx.arc(this.x, this.y, this.r, 0, 2 * Math.PI, false)
-          canvasCtx.fill()
-
-          this._calcPosition()
-          this._move()
-        },
+    function frame(now) {
+      const elapsed = lastFrame === undefined ? 0 : Math.min((now - lastFrame) / 1000, .05);
+      lastFrame = now;
+      if (state === 'playing') {
+        accumulator += elapsed;
+        while (accumulator >= step && state === 'playing') {
+          update(step);
+          accumulator -= step;
+        }
+      } else {
+        accumulator = 0;
       }
+      drawCourt();
+      requestAnimationFrame(frame);
+    }
 
-      function setup() {
-        canvasEl.width = canvasCtx.width = field.w
-        canvasEl.height = canvasCtx.height = field.h
+    function movePointer(event) {
+      const bounds = canvas.getBoundingClientRect();
+      pointerY = (event.clientY - bounds.top) * height / bounds.height;
+    }
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (state !== 'playing' || !event.isPrimary) return;
+      activePointer = event.pointerId;
+      canvas.setPointerCapture(event.pointerId);
+      movePointer(event);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      if (state === 'playing' && (event.pointerType === 'mouse' || event.pointerId === activePointer)) {
+        movePointer(event);
       }
-
-      function draw() {
-        field.draw()
-        line.draw()
-
-        leftPaddle.draw()
-        rightPaddle.draw()
-
-        score.draw()
-
-        ball.draw()
+    });
+    canvas.addEventListener('lostpointercapture', (event) => {
+      if (event.pointerId === activePointer) activePointer = null;
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof HTMLElement && event.target.closest('select, input, textarea, [contenteditable]')) return;
+      if (event.code === 'Space' && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        if (event.repeat) return;
+        if (state === 'ready' || state === 'finished') startMatch();
+        else togglePause();
       }
-
-      window.animateFrame = (function () {
-        return (
-          window.requestAnimationFrame ||
-          window.webkitRequestAnimationFrame ||
-          window.mozRequestAnimationFrame ||
-          window.oRequestAnimationFrame ||
-          window.msRequestAnimationFrame ||
-          function (callback) {
-            return window.setTimeout(callback, 1000 / 60)
-          }
-        )
-      })()
-
-      function main() {
-        animateFrame(main)
-        draw()
+      if (state === 'playing' && movementKeys.includes(event.code)) {
+        event.preventDefault();
+        pointerY = null;
+        keys.add(event.code);
       }
-
-      setup()
-      main()
-
-      canvasEl.addEventListener("mousemove", function (e) {
-        mouse.x = e.pageX
-        mouse.y = e.pageY
-      })
-    </script>
-  </body>
+    });
+    window.addEventListener('keyup', (event) => keys.delete(event.code));
+    window.addEventListener('blur', () => {
+      if (state === 'playing') togglePause();
+    });
+    startButton.addEventListener('click', () => {
+      if (state === 'paused') togglePause();
+      else startMatch();
+    });
+    pauseButton.addEventListener('click', togglePause);
+    restartButton.addEventListener('click', startMatch);
+    new ResizeObserver(resizeCanvas).observe(canvas);
+    resizeCanvas();
+    requestAnimationFrame(frame);
+  </script>
+</body>
 </html>
